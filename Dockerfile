@@ -2,15 +2,20 @@
 FROM alpine
 RUN apk add gnupg
 
-ADD file1 /data/
+RUN addgroup -g 1000 -S build \
+ && adduser -G build -u 1000 -S build
+
+ADD --chown=build:build file1 /data/
+
 ARG GPG_SECRET_KEY_FINGERPRINT
 
-RUN --mount=type=secret,id=gpgsecretkey --mount=type=secret,id=gpgpassphrase \
+RUN --mount=type=secret,id=gpgsecretkey,target=/home/build/.gpg-secret-key,uid=1000,gid=1000 \
+    --mount=type=secret,id=gpgpassphrase,target=/home/build/.gpgpassphrase,uid=1000,gid=1000 \
  gpg --batch --pinentry-mode loopback \
-     --passphrase-file /run/secrets/gpgpassphrase \
-     --import /run/secrets/gpgsecretkey \
+     --passphrase-file /home/build/.gpgpassphrase \
+     --import /home/build/.gpg-secret-key \
  && gpg --batch --pinentry-mode loopback \
-     --passphrase-file /run/secrets/gpgpassphrase \
+     --passphrase-file /home/build/.gpgpassphrase \
      --clearsign /data/file1 \
  && gpg --batch --yes --delete-secret-keys ${GPG_SECRET_KEY_FINGERPRINT} \
- && rm -rf /root/.gnupg
+ && rm -rf /home/build/.gnupg
